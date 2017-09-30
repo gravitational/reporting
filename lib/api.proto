@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package lib;
+
+import "github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis/google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+message Metric {
+  string NodeHash = 1;
+  int64 Timestamp = 2;
+}
+
+service Metrics {
+  rpc Record(stream Metric) returns (google.protobuf.Empty);
+}
