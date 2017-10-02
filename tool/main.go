@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
 
 	"google.golang.org/grpc"
 
-	"github.com/gravitational/reporting/lib"
+	"github.com/gravitational/reporting"
 	"github.com/gravitational/trace"
 )
 
@@ -34,19 +35,23 @@ func run() error {
 			return trace.Wrap(err)
 		}
 		server := grpc.NewServer()
-		lib.RegisterMetricsServer(server, lib.NewServer())
+		reporting.RegisterEventsServer(server, reporting.NewServer())
 		err = server.Serve(listener)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	case "client":
-		conn, err := grpc.Dial(fmt.Sprintf("localhost:%v", *port), grpc.WithInsecure())
+		client, err := reporting.NewClient(fmt.Sprintf("localhost:%v", *port))
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		defer conn.Close()
-		client := lib.NewClient(conn)
-		err = client.Record(*data)
+		err = client.Record(reporting.Event{
+			Type:      reporting.EventTypeNodeAccessed,
+			Timestamp: time.Now(),
+			NodeAccessed: &reporting.NodeAccessed{
+				NodeHash: *data,
+			},
+		})
 		if err != nil {
 			return trace.Wrap(err)
 		}

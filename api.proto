@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package reporting;
+
+import "github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis/google/api/annotations.proto";
+import "google/protobuf/empty.proto";
+
+// RawEvent represents an event that happened in the system
+message RawEvent {
+  // Type is the event type such as "node accessed" or "user logged in"
+  string Type = 1;
+  // Data is the JSON-encoded event payload
+  bytes Data = 2;
+  // Timestamp is the Unix timestamp of the event
+  int64 Timestamp = 3;
+}
+
+// Events defines an event-recording service
+service Events {
+  // Record records the provided stream of events
+  rpc Record(stream RawEvent) returns (google.protobuf.Empty);
+}

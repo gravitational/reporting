@@ -1,4 +1,4 @@
-package lib
+package reporting
 
 import (
 	"fmt"
@@ -9,22 +9,27 @@ import (
 )
 
 type reportingServer struct {
+	server EventsServer
 }
 
-func NewServer() MetricsServer {
+func NewServer() EventsServer {
 	return &reportingServer{}
 }
 
-func (s *reportingServer) Record(stream Metrics_RecordServer) error {
+func (s *reportingServer) Record(stream Events_RecordServer) error {
 	for {
-		metric, err := stream.Recv()
+		rawEvent, err := stream.Recv()
 		if err == io.EOF {
 			return trace.Wrap(stream.SendAndClose(&empty.Empty{}))
 		}
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		fmt.Println("got metric:", metric)
+		event, err := FromRawEvent(*rawEvent)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		fmt.Printf("received event: %v\n", event)
 	}
 	return nil
 }

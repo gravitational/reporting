@@ -2,7 +2,7 @@ PROTOC_VER ?= 3.0.0
 GOGO_PROTO_TAG ?= v0.3
 GRPC_GATEWAY_TAG ?= v1.1.0
 PLATFORM := linux-x86_64
-GRPC_API := lib
+GRPC_API := .
 BUILDBOX_TAG := reporting-buildbox:0.0.1
 
 
