@@ -8,10 +8,10 @@ import (
 )
 
 type Event struct {
-	Type         string
-	Timestamp    time.Time
-	NodeAccessed *NodeAccessed
-	UserLoggedIn *UserLoggedIn
+	Type         string        `json:"type"`
+	Timestamp    time.Time     `json:"timestamp"`
+	NodeAccessed *NodeAccessed `json:"nodeAccessed,omitempty"`
+	UserLoggedIn *UserLoggedIn `json:"userLoggedIn,omitempty"`
 }
 
 func (e *Event) ToRawEvent() (*RawEvent, error) {

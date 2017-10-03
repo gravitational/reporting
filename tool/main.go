@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
@@ -30,7 +31,7 @@ func main() {
 func run() error {
 	switch *mode {
 	case "server":
-		listener, err := net.Listen("tcp", fmt.Sprintf("localhost:%v", *port))
+		listener, err := net.Listen("tcp", fmt.Sprintf(":%v", *port))
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -41,20 +42,19 @@ func run() error {
 			return trace.Wrap(err)
 		}
 	case "client":
-		client, err := reporting.NewClient(fmt.Sprintf("localhost:%v", *port))
+		client, err := reporting.NewClient(
+			context.TODO(), fmt.Sprintf("localhost:%v", *port))
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		err = client.Record(reporting.Event{
+		client.Record(reporting.Event{
 			Type:      reporting.EventTypeNodeAccessed,
 			Timestamp: time.Now(),
 			NodeAccessed: &reporting.NodeAccessed{
 				NodeHash: *data,
 			},
 		})
-		if err != nil {
-			return trace.Wrap(err)
-		}
+		time.Sleep(10 * time.Second)
 	default:
 		return trace.BadParameter("unknown mode")
 	}
