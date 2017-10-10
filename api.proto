@@ -24,5 +24,10 @@ message RawEvents {
 // Events defines an event-recording service
 service Events {
   // Record records the provided list of events
-  rpc Record(RawEvents) returns (google.protobuf.Empty);
+  rpc Record(RawEvents) returns (google.protobuf.Empty) {
+    option (google.api.http) = {
+      post: "/v1/events"
+      body: "*"
+    };
+  }
 }
