@@ -2,12 +2,14 @@ package reporting
 
 import (
 	"context"
+	"crypto/tls"
 	"sync"
 	"time"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 type reportingClient struct {
@@ -18,12 +20,21 @@ type reportingClient struct {
 	ctx      context.Context
 }
 
+type ClientConfig struct {
+	ServerAddr string
+	Cert       tls.Certificate
+}
+
 type Client interface {
 	Record(Event)
 }
 
-func NewClient(ctx context.Context, addr string) (Client, error) {
-	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+func NewClient(ctx context.Context, config ClientConfig) (Client, error) {
+	conn, err := grpc.Dial(config.ServerAddr, grpc.WithTransportCredentials(
+		credentials.NewTLS(&tls.Config{
+			InsecureSkipVerify: true,
+			Certificates:       []tls.Certificate{config.Cert},
+		})))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}

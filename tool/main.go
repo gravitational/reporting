@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"time"
 
 	"google.golang.org/grpc"
 
+	"github.com/gravitational/license/authority"
 	"github.com/gravitational/reporting"
 	"github.com/gravitational/trace"
 )
@@ -18,6 +21,7 @@ var (
 	mode = flag.String("mode", "", "server or client")
 	port = flag.String("port", "10000", "server port")
 	data = flag.String("data", "", "metric data to send")
+	cert = flag.String("cert", "", "client certificate")
 )
 
 func main() {
@@ -42,8 +46,23 @@ func run() error {
 			return trace.Wrap(err)
 		}
 	case "client":
+		certAndKey, err := ioutil.ReadFile(*cert)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		certPEM, keyPEM, err := authority.SplitPEM(certAndKey)
+		if err != nil {
+			return trace.Wrap(err)
+		}
+		cert, err := tls.X509KeyPair(certPEM, keyPEM)
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		client, err := reporting.NewClient(
-			context.TODO(), fmt.Sprintf("localhost:%v", *port))
+			context.TODO(), reporting.ClientConfig{
+				ServerAddr: fmt.Sprintf("localhost:%v", *port),
+				Cert:       cert,
+			})
 		if err != nil {
 			return trace.Wrap(err)
 		}
