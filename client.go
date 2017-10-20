@@ -30,11 +30,12 @@ type Client interface {
 }
 
 func NewClient(ctx context.Context, config ClientConfig) (Client, error) {
-	conn, err := grpc.Dial(config.ServerAddr, grpc.WithTransportCredentials(
-		credentials.NewTLS(&tls.Config{
-			InsecureSkipVerify: true,
-			Certificates:       []tls.Certificate{config.Cert},
-		})))
+	conn, err := grpc.Dial(config.ServerAddr,
+		grpc.WithTransportCredentials(
+			credentials.NewTLS(&tls.Config{
+				InsecureSkipVerify: true,
+				Certificates:       []tls.Certificate{config.Cert},
+			})))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -45,8 +46,7 @@ func NewClient(ctx context.Context, config ClientConfig) (Client, error) {
 		ctx:      ctx,
 	}
 
-	go client.receiveEvents()
-	go client.periodicFlush()
+	go client.receiveAndFlushEvents()
 
 	return client, nil
 }
@@ -60,40 +60,20 @@ func (c *reportingClient) Record(event Event) {
 	}
 }
 
-func (c *reportingClient) receiveEvents() {
+func (c *reportingClient) receiveAndFlushEvents() {
 	for {
 		select {
 		case event := <-c.eventsCh:
-			err := c.onEvent(event)
-			if err != nil {
-				log.Errorf(trace.DebugReport(err))
+			if len(c.events) >= FlushCount {
+				err := c.flush()
+				if err != nil {
+					log.Errorf("events queue full and failed to flush events, discarding %v: %v",
+						event, trace.DebugReport(err))
+					continue
+				}
 			}
+			c.events = append(c.events, event)
 
-		case <-c.ctx.Done():
-			return
-		}
-	}
-}
-
-func (c *reportingClient) onEvent(event Event) error {
-	c.Lock()
-	defer c.Unlock()
-
-	c.events = append(c.events, event)
-
-	if len(c.events) >= FlushCount {
-		err := c.flush()
-		if err != nil {
-			return trace.Wrap(err)
-		}
-	}
-
-	return nil
-}
-
-func (c *reportingClient) periodicFlush() {
-	for {
-		select {
 		case <-time.After(FlushInterval):
 			err := c.flush()
 			if err != nil {
@@ -108,10 +88,9 @@ func (c *reportingClient) periodicFlush() {
 }
 
 func (c *reportingClient) flush() error {
-	c.Lock()
-	defer c.Unlock()
-
-	log.Debug("flushing events")
+	if len(c.events) == 0 {
+		return nil
+	}
 
 	var rawEvents RawEvents
 	for _, event := range c.events {
@@ -128,6 +107,7 @@ func (c *reportingClient) flush() error {
 		return trace.Wrap(err)
 	}
 
+	log.Debugf("flushed %v events", len(c.events))
 	c.events = []Event{}
 	return nil
 }

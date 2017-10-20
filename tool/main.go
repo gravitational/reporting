@@ -66,14 +66,16 @@ func run() error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		client.Record(reporting.Event{
-			Type:      reporting.EventTypeNodeAccessed,
-			Timestamp: time.Now(),
-			NodeAccessed: &reporting.NodeAccessed{
-				NodeHash: *data,
-			},
-		})
-		time.Sleep(10 * time.Second)
+		for {
+			client.Record(reporting.Event{
+				Type:      reporting.EventTypeNodeAccessed,
+				Timestamp: time.Now(),
+				NodeAccessed: &reporting.NodeAccessed{
+					NodeHash: *data,
+				},
+			})
+			time.Sleep(1 * time.Second)
+		}
 	default:
 		return trace.BadParameter("unknown mode")
 	}
