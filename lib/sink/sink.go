@@ -17,7 +17,22 @@ type Sink interface {
 	Put([]events.Event) error
 }
 
-type bigQuery struct {
+type logSink struct{}
+
+// NewLog returns a new sink that logs events
+func NewLog() *logSink {
+	return &logSink{}
+}
+
+// Put logs provided events
+func (s *logSink) Put(events []events.Event) error {
+	for _, event := range events {
+		log.Infof("logSink: %#v", event)
+	}
+	return nil
+}
+
+type bigQuerySink struct {
 	client *bigquery.Client
 }
 
@@ -29,12 +44,12 @@ type BigQueryConfig struct {
 }
 
 // NewBigQuery returns a new Google BigQuery events sink
-func NewBigQuery(config BigQueryConfig) (*bigQuery, error) {
+func NewBigQuery(config BigQueryConfig) (*bigQuerySink, error) {
 	client, err := bigquery.NewClient(context.Background(), config.ProjectID)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	bigQuery := &bigQuery{client: client}
+	bigQuery := &bigQuerySink{client: client}
 	err = bigQuery.initSchema()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -43,7 +58,7 @@ func NewBigQuery(config BigQueryConfig) (*bigQuery, error) {
 }
 
 // Put saves a series of events into Google BigQuery
-func (q *bigQuery) Put(events []events.Event) error {
+func (q *bigQuerySink) Put(events []events.Event) error {
 	uploader := q.client.Dataset(datasetName).Table(tableName).Uploader()
 	err := uploader.Put(context.Background(), events)
 	if err != nil {
@@ -60,7 +75,7 @@ func (q *bigQuery) Put(events []events.Event) error {
 }
 
 // initSchema initializes the dataset and table in Google BigQuery
-func (q *bigQuery) initSchema() error {
+func (q *bigQuerySink) initSchema() error {
 	dataset := q.client.Dataset(datasetName)
 	err := dataset.Create(context.Background(), nil)
 	if err != nil {
