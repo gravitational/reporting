@@ -39,8 +39,16 @@ func run() error {
 		if err != nil {
 			return trace.Wrap(err)
 		}
+		bq, err := reporting.NewBigQuery(reporting.BigQueryConfig{
+			ProjectID: "kubeadm-167321",
+		})
+		if err != nil {
+			return trace.Wrap(err)
+		}
 		server := grpc.NewServer()
-		reporting.RegisterEventsServer(server, reporting.NewServer())
+		reporting.RegisterEventsServer(server, reporting.NewServer(reporting.ServerConfig{
+			Sinks: []reporting.Sink{bq},
+		}))
 		err = server.Serve(listener)
 		if err != nil {
 			return trace.Wrap(err)
