@@ -1,4 +1,4 @@
-FROM quay.io/gravitational/debian-venti:go1.8.3-jessie
+FROM quay.io/gravitational/debian-venti:go1.9.1-jessie
 
 ARG PROTOC_VER
 ARG GOGO_PROTO_TAG

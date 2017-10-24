@@ -3,11 +3,11 @@
 // DO NOT EDIT!
 
 /*
-Package reporting is a reverse proxy.
+Package grpc is a reverse proxy.
 
 It translates gRPC into RESTful JSON APIs.
 */
-package reporting
+package grpc
 
 import (
 	"io"
@@ -27,8 +27,8 @@ var _ io.Reader
 var _ = runtime.String
 var _ = utilities.NewDoubleArray
 
-func request_Events_Record_0(ctx context.Context, marshaler runtime.Marshaler, client EventsClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
-	var protoReq RawEvents
+func request_EventsService_Record_0(ctx context.Context, marshaler runtime.Marshaler, client EventsServiceClient, req *http.Request, pathParams map[string]string) (proto.Message, runtime.ServerMetadata, error) {
+	var protoReq Events
 	var metadata runtime.ServerMetadata
 
 	if err := marshaler.NewDecoder(req.Body).Decode(&protoReq); err != nil {
@@ -40,9 +40,9 @@ func request_Events_Record_0(ctx context.Context, marshaler runtime.Marshaler, c
 
 }
 
-// RegisterEventsHandlerFromEndpoint is same as RegisterEventsHandler but
+// RegisterEventsServiceHandlerFromEndpoint is same as RegisterEventsServiceHandler but
 // automatically dials to "endpoint" and closes the connection when "ctx" gets done.
-func RegisterEventsHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
+func RegisterEventsServiceHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMux, endpoint string, opts []grpc.DialOption) (err error) {
 	conn, err := grpc.Dial(endpoint, opts...)
 	if err != nil {
 		return err
@@ -62,15 +62,15 @@ func RegisterEventsHandlerFromEndpoint(ctx context.Context, mux *runtime.ServeMu
 		}()
 	}()
 
-	return RegisterEventsHandler(ctx, mux, conn)
+	return RegisterEventsServiceHandler(ctx, mux, conn)
 }
 
-// RegisterEventsHandler registers the http handlers for service Events to "mux".
+// RegisterEventsServiceHandler registers the http handlers for service EventsService to "mux".
 // The handlers forward requests to the grpc endpoint over "conn".
-func RegisterEventsHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
-	client := NewEventsClient(conn)
+func RegisterEventsServiceHandler(ctx context.Context, mux *runtime.ServeMux, conn *grpc.ClientConn) error {
+	client := NewEventsServiceClient(conn)
 
-	mux.Handle("POST", pattern_Events_Record_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+	mux.Handle("POST", pattern_EventsService_Record_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		if cn, ok := w.(http.CloseNotifier); ok {
@@ -87,14 +87,14 @@ func RegisterEventsHandler(ctx context.Context, mux *runtime.ServeMux, conn *grp
 		if err != nil {
 			runtime.HTTPError(ctx, outboundMarshaler, w, req, err)
 		}
-		resp, md, err := request_Events_Record_0(rctx, inboundMarshaler, client, req, pathParams)
+		resp, md, err := request_EventsService_Record_0(rctx, inboundMarshaler, client, req, pathParams)
 		ctx = runtime.NewServerMetadataContext(ctx, md)
 		if err != nil {
 			runtime.HTTPError(ctx, outboundMarshaler, w, req, err)
 			return
 		}
 
-		forward_Events_Record_0(ctx, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
+		forward_EventsService_Record_0(ctx, outboundMarshaler, w, req, resp, mux.GetForwardResponseOptions()...)
 
 	})
 
@@ -102,9 +102,9 @@ func RegisterEventsHandler(ctx context.Context, mux *runtime.ServeMux, conn *grp
 }
 
 var (
-	pattern_Events_Record_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "events"}, ""))
+	pattern_EventsService_Record_0 = runtime.MustPattern(runtime.NewPattern(1, []int{2, 0, 2, 1}, []string{"v1", "events"}, ""))
 )
 
 var (
-	forward_Events_Record_0 = runtime.ForwardResponseMessage
+	forward_EventsService_Record_0 = runtime.ForwardResponseMessage
 )

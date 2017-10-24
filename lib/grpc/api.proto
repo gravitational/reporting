@@ -1,30 +1,30 @@
 syntax = "proto3";
 
-package reporting;
+package grpc;
 
 import "github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis/google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 
-// RawEvent a single event that happened in the system
-message RawEvent {
+// Event represents a single event sent over grpc
+message Event {
   // Type is the event type such as "node accessed" or "user logged in"
   string Type = 1;
   // Data is the JSON-encoded event payload
   bytes Data = 2;
-  // Timestamp is the Unix timestamp of the event
-  int64 Timestamp = 3;
+  // Time is the Unix timestamp of the event
+  int64 Time = 3;
 }
 
-// RawEvents defines a series of events
-message RawEvents {
+// Events defines a series of events sent over grpc
+message Events {
   // Events is a list of events
-  repeated RawEvent Events = 1;
+  repeated Event Events = 1;
 }
 
-// Events defines an event-recording service
-service Events {
+// EventsService defines an event-recording service
+service EventsService {
   // Record records the provided list of events
-  rpc Record(RawEvents) returns (google.protobuf.Empty) {
+  rpc Record(Events) returns (google.protobuf.Empty) {
     option (google.api.http) = {
       post: "/v1/events"
       body: "*"

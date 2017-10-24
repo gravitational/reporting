@@ -6,15 +6,20 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net"
 	"time"
 
-	"google.golang.org/grpc"
+	clt "github.com/gravitational/reporting/lib/client"
+	evt "github.com/gravitational/reporting/lib/events"
+	grp "github.com/gravitational/reporting/lib/grpc"
+	srv "github.com/gravitational/reporting/lib/server"
+	snk "github.com/gravitational/reporting/lib/sink"
 
 	"github.com/gravitational/license/authority"
-	"github.com/gravitational/reporting"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 var (
@@ -25,6 +30,10 @@ var (
 )
 
 func main() {
+	log.SetLevel(log.DebugLevel)
+	log.SetFormatter(&trace.TextFormatter{
+		TextFormatter: log.TextFormatter{FullTimestamp: true},
+	})
 	flag.Parse()
 	err := run()
 	if err != nil {
@@ -33,56 +42,54 @@ func main() {
 }
 
 func run() error {
+	certAndKey, err := ioutil.ReadFile(*cert)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	certPEM, keyPEM, err := authority.SplitPEM(certAndKey)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	cert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		return trace.Wrap(err)
+	}
 	switch *mode {
 	case "server":
 		listener, err := net.Listen("tcp", fmt.Sprintf(":%v", *port))
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		bq, err := reporting.NewBigQuery(reporting.BigQueryConfig{
+		bq, err := snk.NewBigQuery(snk.BigQueryConfig{
 			ProjectID: "kubeadm-167321",
 		})
 		if err != nil {
 			return trace.Wrap(err)
 		}
-		server := grpc.NewServer()
-		reporting.RegisterEventsServer(server, reporting.NewServer(reporting.ServerConfig{
-			Sinks: []reporting.Sink{bq},
+		server := grpc.NewServer(grpc.Creds(credentials.NewServerTLSFromCert(&cert)))
+		grp.RegisterEventsServiceServer(server, srv.New(srv.Config{
+			Sinks: []snk.Sink{bq},
 		}))
 		err = server.Serve(listener)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 	case "client":
-		certAndKey, err := ioutil.ReadFile(*cert)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		certPEM, keyPEM, err := authority.SplitPEM(certAndKey)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		cert, err := tls.X509KeyPair(certPEM, keyPEM)
-		if err != nil {
-			return trace.Wrap(err)
-		}
-		client, err := reporting.NewClient(
-			context.TODO(), reporting.ClientConfig{
-				ServerAddr: fmt.Sprintf("localhost:%v", *port),
-				Cert:       cert,
+		client, err := clt.New(
+			context.TODO(), clt.Config{
+				ServerAddr:  fmt.Sprintf("localhost:%v", *port),
+				Certificate: cert,
 			})
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		for {
-			client.Record(reporting.Event{
-				Type:      reporting.EventTypeNodeAccessed,
-				Timestamp: time.Now(),
-				NodeAccessed: &reporting.NodeAccessed{
-					NodeHash: *data,
-				},
+			client.Record(&evt.ServerEvent{
+				Action:   evt.EventActionLogin,
+				ServerID: "xxx",
+				Time:     time.Now(),
 			})
-			time.Sleep(1 * time.Second)
+			time.Sleep(5 * time.Second)
 		}
 	default:
 		return trace.BadParameter("unknown mode")
