@@ -28,6 +28,15 @@ type ServerEvent struct {
 	Time time.Time `json:"time"`
 }
 
+// NewServerLoginEvent creates an instance of "server login" event
+func NewServerLoginEvent(serverID string) *ServerEvent {
+	return &ServerEvent{
+		Action:   EventActionLogin,
+		ServerID: serverID,
+		Time:     time.Now().UTC(),
+	}
+}
+
 // Type returns the event type
 func (e *ServerEvent) Type() string { return EventTypeServer }
 
@@ -52,6 +61,15 @@ type UserEvent struct {
 	UserID string `json:"userID"`
 	// Time is the event timestamp
 	Time time.Time `json:"time"`
+}
+
+// NewUserLoginEvent creates an instance of "user login" event
+func NewUserLoginEvent(userID string) *UserEvent {
+	return &UserEvent{
+		Action: EventActionLogin,
+		UserID: userID,
+		Time:   time.Now().UTC(),
+	}
 }
 
 // Type returns the event type

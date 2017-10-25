@@ -43,8 +43,20 @@ type BigQueryConfig struct {
 	ProjectID string `json:"projectID"`
 }
 
+// Check makes sure that BigQuery sink config is valid
+func (c BigQueryConfig) Check() error {
+	if c.ProjectID == "" {
+		return trace.BadParameter("bigquery config is missing project id")
+	}
+	return nil
+}
+
 // NewBigQuery returns a new Google BigQuery events sink
 func NewBigQuery(config BigQueryConfig) (*bigQuerySink, error) {
+	err := config.Check()
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
 	client, err := bigquery.NewClient(context.Background(), config.ProjectID)
 	if err != nil {
 		return nil, trace.Wrap(err)
