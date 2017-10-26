@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"crypto/tls"
-	"sync"
 	"time"
 
 	"github.com/gravitational/reporting/lib/events"
@@ -16,7 +15,6 @@ import (
 )
 
 type client struct {
-	sync.Mutex
 	client   grpc.EventsServiceClient
 	eventsCh chan events.Event
 	events   []events.Event

@@ -14,6 +14,8 @@ import (
 type Event interface {
 	// Type returns event type
 	Type() string
+	// SetAccountID sets the event account id
+	SetAccountID(string)
 }
 
 // ServerEvent represents server-related event, such as "logged into server"
@@ -22,7 +24,7 @@ type ServerEvent struct {
 	Action string `json:"action"`
 	// AccountID is ID of account that triggered the event
 	AccountID string `json:"accountID"`
-	// ServerID is ID of server that triggered the event
+	// ServerID is anonymized ID of server that triggered the event
 	ServerID string `json:"serverID"`
 	// Time is the event timestamp
 	Time time.Time `json:"time"`
@@ -39,6 +41,11 @@ func NewServerLoginEvent(serverID string) *ServerEvent {
 
 // Type returns the event type
 func (e *ServerEvent) Type() string { return EventTypeServer }
+
+// SetAccountID sets the event account id
+func (e *ServerEvent) SetAccountID(id string) {
+	e.AccountID = id
+}
 
 // Save implements bigqquery.ValueSaver
 func (e *ServerEvent) Save() (map[string]bigquery.Value, string, error) {
@@ -57,7 +64,7 @@ type UserEvent struct {
 	Action string `json:"action"`
 	// AccountID is ID of account that triggered the event
 	AccountID string `json:"accountID"`
-	// UserID is ID of user that triggered the event
+	// UserID is anonymized ID of user that triggered the event
 	UserID string `json:"userID"`
 	// Time is the event timestamp
 	Time time.Time `json:"time"`
@@ -74,6 +81,11 @@ func NewUserLoginEvent(userID string) *UserEvent {
 
 // Type returns the event type
 func (e *UserEvent) Type() string { return EventTypeUser }
+
+// SetAccountID sets the event account id
+func (e *UserEvent) SetAccountID(id string) {
+	e.AccountID = id
+}
 
 // Save implements bigquery.ValueSaver
 func (e *UserEvent) Save() (map[string]bigquery.Value, string, error) {
