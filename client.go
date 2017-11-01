@@ -42,8 +42,11 @@ func NewClient(ctx context.Context, config ClientConfig) (*client, error) {
 		return nil, trace.Wrap(err)
 	}
 	client := &client{
-		client:   NewEventsServiceClient(conn),
-		eventsCh: make(chan Event, flushCount),
+		client: NewEventsServiceClient(conn),
+		// give an extra room to the events channel in case events
+		// are generated faster we can flush them (unlikely due to
+		// our events nature)
+		eventsCh: make(chan Event, 5*flushCount),
 		ctx:      ctx,
 	}
 	go client.receiveAndFlushEvents()
@@ -51,14 +54,18 @@ func NewClient(ctx context.Context, config ClientConfig) (*client, error) {
 }
 
 type client struct {
-	client   EventsServiceClient
+	client EventsServiceClient
+	// eventsCh is the channel where events are submitted before they are
+	// put into internal buffer
 	eventsCh chan Event
-	events   []Event
-	ctx      context.Context
+	// events is the internal events buffer that gets flushed periodically
+	events []Event
+	// ctx may be used to stop client goroutine
+	ctx context.Context
 }
 
-// Record records an event. Note that the client accumulates events in memory and
-// flushes them every once in a while
+// Record records an event. Note that the client accumulates events in memory
+// and flushes them every once in a while
 func (c *client) Record(event Event) {
 	select {
 	case c.eventsCh <- event:
@@ -68,9 +75,9 @@ func (c *client) Record(event Event) {
 	}
 }
 
-// receiveAndFlushEvents receives events on a channel, accumulates them in memory
-// and flushes them once a certain number has been accumulated, or certain amount
-// of time has passed
+// receiveAndFlushEvents receives events on a channel, accumulates them in
+// memory and flushes them once a certain number has been accumulated, or
+// certain amount of time has passed
 func (c *client) receiveAndFlushEvents() {
 	for {
 		select {
@@ -91,6 +98,7 @@ func (c *client) receiveAndFlushEvents() {
 					trace.DebugReport(err))
 			}
 		case <-c.ctx.Done():
+			log.Debug("reporting client is shutting down")
 			return
 		}
 	}
@@ -99,7 +107,7 @@ func (c *client) receiveAndFlushEvents() {
 // flush flushes all accumulated events
 func (c *client) flush() error {
 	if len(c.events) == 0 {
-		return nil
+		return nil // nothing to flush
 	}
 	var grpcEvents GRPCEvents
 	for _, event := range c.events {
@@ -110,6 +118,9 @@ func (c *client) flush() error {
 		grpcEvents.Events = append(
 			grpcEvents.Events, grpcEvent)
 	}
+	// if we fail to flush some events here, they will be retried on
+	// the next cycle, we may get duplicates but each event includes
+	// a unique ID which server sinks can use to de-duplicate
 	_, err := c.client.Record(context.TODO(), &grpcEvents)
 	if err != nil {
 		return trace.Wrap(err)

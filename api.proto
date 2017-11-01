@@ -11,8 +11,6 @@ message GRPCEvent {
   string Type = 1;
   // Data is the JSON-encoded event payload
   bytes Data = 2;
-  // Time is the Unix timestamp of the event
-  int64 Time = 3;
 }
 
 // Events defines a series of events sent over gRPC

@@ -6,6 +6,7 @@ import (
 
 	"cloud.google.com/go/bigquery"
 	"github.com/gravitational/trace"
+	"github.com/pborman/uuid"
 )
 
 // Event defines an interface all event types should implement
@@ -18,6 +19,8 @@ type Event interface {
 
 // ServerEvent represents server-related event, such as "logged into server"
 type ServerEvent struct {
+	// ID is event ID, may be used for de-duplication
+	ID string `json:"id"`
 	// Action is event action, such as "login"
 	Action string `json:"action"`
 	// AccountID is ID of account that triggered the event
@@ -31,6 +34,7 @@ type ServerEvent struct {
 // NewServerLoginEvent creates an instance of "server login" event
 func NewServerLoginEvent(serverID string) *ServerEvent {
 	return &ServerEvent{
+		ID:       uuid.New(),
 		Action:   EventActionLogin,
 		ServerID: serverID,
 		Time:     time.Now().UTC(),
@@ -53,11 +57,13 @@ func (e *ServerEvent) Save() (map[string]bigquery.Value, string, error) {
 		"accountID": e.AccountID,
 		"serverID":  e.ServerID,
 		"time":      e.Time.Unix(),
-	}, "", nil
+	}, e.ID, nil
 }
 
 // UserEvent represents user-related event, such as "user logged in"
 type UserEvent struct {
+	// ID is event ID, may be used for de-duplication
+	ID string `json:"id"`
 	// Action is event action, such as "login"
 	Action string `json:"action"`
 	// AccountID is ID of account that triggered the event
@@ -71,6 +77,7 @@ type UserEvent struct {
 // NewUserLoginEvent creates an instance of "user login" event
 func NewUserLoginEvent(userID string) *UserEvent {
 	return &UserEvent{
+		ID:     uuid.New(),
 		Action: EventActionLogin,
 		UserID: userID,
 		Time:   time.Now().UTC(),
@@ -93,7 +100,7 @@ func (e *UserEvent) Save() (map[string]bigquery.Value, string, error) {
 		"accountID": e.AccountID,
 		"userID":    e.UserID,
 		"time":      e.Time.Unix(),
-	}, "", nil
+	}, e.ID, nil
 }
 
 // ToGRPCEvent converts provided event to the format used by gRPC server/client
@@ -113,15 +120,13 @@ func FromGRPCEvent(grpcEvent GRPCEvent) (Event, error) {
 	switch grpcEvent.Type {
 	case EventTypeServer:
 		var event ServerEvent
-		err := json.Unmarshal(grpcEvent.Data, &event)
-		if err != nil {
+		if err := json.Unmarshal(grpcEvent.Data, &event); err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return &event, nil
 	case EventTypeUser:
 		var event UserEvent
-		err := json.Unmarshal(grpcEvent.Data, &event)
-		if err != nil {
+		if err := json.Unmarshal(grpcEvent.Data, &event); err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return &event, nil
