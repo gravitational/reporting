@@ -1,10 +1,8 @@
-package events
+package reporting
 
 import (
 	"encoding/json"
 	"time"
-
-	"github.com/gravitational/reporting/lib/grpc"
 
 	"cloud.google.com/go/bigquery"
 	"github.com/gravitational/trace"
@@ -98,20 +96,20 @@ func (e *UserEvent) Save() (map[string]bigquery.Value, string, error) {
 	}, "", nil
 }
 
-// ToGrpcEvent converts provided event to the format used by gRPC server/client
-func ToGrpcEvent(event Event) (*grpc.Event, error) {
+// ToGRPCEvent converts provided event to the format used by gRPC server/client
+func ToGRPCEvent(event Event) (*GRPCEvent, error) {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &grpc.Event{
+	return &GRPCEvent{
 		Type: event.Type(),
 		Data: payload,
 	}, nil
 }
 
-// FromGrpcEvent converts event from the format used by gRPC server/client
-func FromGrpcEvent(grpcEvent grpc.Event) (Event, error) {
+// FromGRPCEvent converts event from the format used by gRPC server/client
+func FromGRPCEvent(grpcEvent GRPCEvent) (Event, error) {
 	switch grpcEvent.Type {
 	case EventTypeServer:
 		var event ServerEvent
@@ -132,11 +130,11 @@ func FromGrpcEvent(grpcEvent grpc.Event) (Event, error) {
 	}
 }
 
-// FromGrpcEvents converts a series of events from the format used by gRPC server/client
-func FromGrpcEvents(grpcEvents grpc.Events) ([]Event, error) {
+// FromGRPCEvents converts a series of events from the format used by gRPC server/client
+func FromGRPCEvents(grpcEvents GRPCEvents) ([]Event, error) {
 	var events []Event
 	for _, grpcEvent := range grpcEvents.Events {
-		event, err := FromGrpcEvent(*grpcEvent)
+		event, err := FromGRPCEvent(*grpcEvent)
 		if err != nil {
 			return nil, trace.Wrap(err)
 		}
@@ -144,12 +142,3 @@ func FromGrpcEvents(grpcEvents grpc.Events) ([]Event, error) {
 	}
 	return events, nil
 }
-
-const (
-	// EventTypeServer is the server-related event type
-	EventTypeServer = "server"
-	// EventTypeUser is the user-related event type
-	EventTypeUser = "user"
-	// EventActionLogin is the event login action
-	EventActionLogin = "login"
-)

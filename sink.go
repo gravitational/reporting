@@ -1,10 +1,8 @@
-package sink
+package reporting
 
 import (
 	"context"
 	"strings"
-
-	"github.com/gravitational/reporting/lib/events"
 
 	"cloud.google.com/go/bigquery"
 	"github.com/gravitational/trace"
@@ -14,26 +12,39 @@ import (
 // Sink defines an event sink interface
 type Sink interface {
 	// Put saves a series of events
-	Put([]events.Event) error
+	Put([]Event) error
+}
+
+// NewLogSink returns a new sink that just logs events
+func NewLogSink() *logSink {
+	return &logSink{}
 }
 
 type logSink struct{}
 
-// NewLog returns a new sink that logs events
-func NewLog() *logSink {
-	return &logSink{}
-}
-
 // Put logs provided events
-func (s *logSink) Put(events []events.Event) error {
+func (s *logSink) Put(events []Event) error {
 	for _, event := range events {
 		log.Infof("logSink: %#v", event)
 	}
 	return nil
 }
 
-type bigQuerySink struct {
-	client *bigquery.Client
+// NewChannelSink returns a new sink that submits events into the provided channel
+func NewChannelSink(ch chan Event) *chanSink {
+	return &chanSink{ch: ch}
+}
+
+type chanSink struct {
+	ch chan Event
+}
+
+// Put submits events into the channel the sink was initialized with
+func (s *chanSink) Put(events []Event) error {
+	for _, event := range events {
+		s.ch <- event
+	}
+	return nil
 }
 
 // BigQueryConfig is config for Google BigQuery sink
@@ -51,8 +62,8 @@ func (c BigQueryConfig) Check() error {
 	return nil
 }
 
-// NewBigQuery returns a new Google BigQuery events sink
-func NewBigQuery(config BigQueryConfig) (*bigQuerySink, error) {
+// NewBigQuerySink returns a new Google BigQuery events sink
+func NewBigQuerySink(config BigQueryConfig) (*bigQuerySink, error) {
 	err := config.Check()
 	if err != nil {
 		return nil, trace.Wrap(err)
@@ -69,9 +80,13 @@ func NewBigQuery(config BigQueryConfig) (*bigQuerySink, error) {
 	return bigQuery, nil
 }
 
+type bigQuerySink struct {
+	client *bigquery.Client
+}
+
 // Put saves a series of events into Google BigQuery
-func (q *bigQuerySink) Put(events []events.Event) error {
-	uploader := q.client.Dataset(datasetName).Table(tableName).Uploader()
+func (q *bigQuerySink) Put(events []Event) error {
+	uploader := q.client.Dataset(bqDatasetName).Table(bqTableName).Uploader()
 	err := uploader.Put(context.Background(), events)
 	if err != nil {
 		if pme, ok := err.(bigquery.PutMultiError); ok {
@@ -88,15 +103,15 @@ func (q *bigQuerySink) Put(events []events.Event) error {
 
 // initSchema initializes the dataset and table in Google BigQuery
 func (q *bigQuerySink) initSchema() error {
-	dataset := q.client.Dataset(datasetName)
+	dataset := q.client.Dataset(bqDatasetName)
 	err := dataset.Create(context.Background(), nil)
 	if err != nil {
 		if !strings.Contains(err.Error(), "Already Exists") {
 			return trace.Wrap(err)
 		}
-		log.Debugf("dataset %q already exists", datasetName)
+		log.Debugf("dataset %q already exists", bqDatasetName)
 	}
-	table := dataset.Table(tableName)
+	table := dataset.Table(bqTableName)
 	err = table.Delete(context.Background())
 	if err != nil {
 		return trace.Wrap(err)
@@ -141,10 +156,3 @@ var tableSchema = bigquery.Schema{
 		Type: bigquery.StringFieldType,
 	},
 }
-
-const (
-	// datasetName is the BigQuery dataset name
-	datasetName = "houston"
-	// tableName is the BigQuery events table name
-	tableName = "events"
-)

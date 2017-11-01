@@ -2,9 +2,19 @@ PROTOC_VER ?= 3.0.0
 GOGO_PROTO_TAG ?= v0.3
 GRPC_GATEWAY_TAG ?= v1.1.0
 PLATFORM := linux-x86_64
-GRPC_API := ./lib/grpc
+GRPC_API := .
 BUILDBOX_TAG := reporting-buildbox:0.0.1
 
+.PHONY: all
+all: grpc build
+
+.PHONY: build
+build:
+	go build .
+
+.PHONY: test
+test:
+	go test -v .
 
 .PHONY: buildbox
 buildbox:
@@ -15,12 +25,10 @@ buildbox:
           --build-arg PLATFORM=$(PLATFORM) \
           -t $(BUILDBOX_TAG) .
 
-
 .PHONY: grpc
 grpc: buildbox
 	docker run -v $(shell pwd):/go/src/github.com/gravitational/reporting $(BUILDBOX_TAG) \
 		make -C /go/src/github.com/gravitational/reporting buildbox-grpc
-
 
 .PHONY: buildbox-grpc
 buildbox-grpc:

@@ -1,12 +1,9 @@
-package client
+package reporting
 
 import (
 	"context"
 	"crypto/tls"
 	"time"
-
-	"github.com/gravitational/reporting/lib/events"
-	"github.com/gravitational/reporting/lib/grpc"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -14,56 +11,55 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-type client struct {
-	client   grpc.EventsServiceClient
-	eventsCh chan events.Event
-	events   []events.Event
-	ctx      context.Context
-}
-
-// Config defines the reporting client config
-type Config struct {
+// ClientConfig defines the reporting client config
+type ClientConfig struct {
 	// ServerAddr is the address of the reporting gRPC server
 	ServerAddr string
 	// ServerName is the SNI server name
 	ServerName string
 	// Certificate is the client certificate to authenticate with
 	Certificate tls.Certificate
+	// Insecure is whether the client should skip server cert verification
+	Insecure bool
 }
 
 // Client defines the reporting client interface
 type Client interface {
 	// Record records an event
-	Record(events.Event)
+	Record(Event)
 }
 
-// New returns a new reporting gRPC client
-func New(ctx context.Context, config Config) (*client, error) {
+// NewClient returns a new reporting gRPC client
+func NewClient(ctx context.Context, config ClientConfig) (*client, error) {
 	conn, err := grpcapi.Dial(config.ServerAddr,
 		grpcapi.WithTransportCredentials(
 			credentials.NewTLS(&tls.Config{
 				ServerName:         config.ServerName,
-				InsecureSkipVerify: true,
+				InsecureSkipVerify: config.Insecure,
 				Certificates:       []tls.Certificate{config.Certificate},
 			})))
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-
 	client := &client{
-		client:   grpc.NewEventsServiceClient(conn),
-		eventsCh: make(chan events.Event, FlushCount),
+		client:   NewEventsServiceClient(conn),
+		eventsCh: make(chan Event, flushCount),
 		ctx:      ctx,
 	}
-
 	go client.receiveAndFlushEvents()
-
 	return client, nil
+}
+
+type client struct {
+	client   EventsServiceClient
+	eventsCh chan Event
+	events   []Event
+	ctx      context.Context
 }
 
 // Record records an event. Note that the client accumulates events in memory and
 // flushes them every once in a while
-func (c *client) Record(event events.Event) {
+func (c *client) Record(event Event) {
 	select {
 	case c.eventsCh <- event:
 		log.Debugf("queued %v", event)
@@ -79,7 +75,7 @@ func (c *client) receiveAndFlushEvents() {
 	for {
 		select {
 		case event := <-c.eventsCh:
-			if len(c.events) >= FlushCount {
+			if len(c.events) >= flushCount {
 				err := c.flush()
 				if err != nil {
 					log.Errorf("events queue full and failed to flush events, discarding %v: %v",
@@ -88,14 +84,12 @@ func (c *client) receiveAndFlushEvents() {
 				}
 			}
 			c.events = append(c.events, event)
-
-		case <-time.After(FlushInterval):
+		case <-time.After(flushInterval):
 			err := c.flush()
 			if err != nil {
 				log.Errorf("failed to flush events: %v",
 					trace.DebugReport(err))
 			}
-
 		case <-c.ctx.Done():
 			return
 		}
@@ -107,30 +101,20 @@ func (c *client) flush() error {
 	if len(c.events) == 0 {
 		return nil
 	}
-
-	var grpcEvents grpc.Events
+	var grpcEvents GRPCEvents
 	for _, event := range c.events {
-		grpcEvent, err := events.ToGrpcEvent(event)
+		grpcEvent, err := ToGRPCEvent(event)
 		if err != nil {
 			return trace.Wrap(err)
 		}
 		grpcEvents.Events = append(
 			grpcEvents.Events, grpcEvent)
 	}
-
 	_, err := c.client.Record(context.TODO(), &grpcEvents)
 	if err != nil {
 		return trace.Wrap(err)
 	}
-
 	log.Debugf("flushed %v events", len(c.events))
-	c.events = []events.Event{}
+	c.events = []Event{}
 	return nil
 }
-
-const (
-	// FlushInterval is how often the flush happens
-	FlushInterval = 3 * time.Second
-	// FlushCount is the number of events to accumulate before flush triggers
-	FlushCount = 1
-)
