@@ -95,26 +95,30 @@ func (c *client) Record(event Event) {
 // memory and flushes them once a certain number has been accumulated, or
 // certain amount of time has passed
 func (c *client) receiveAndFlushEvents() {
+	ticker := time.NewTicker(flushInterval)
+	defer ticker.Stop()
 	for {
 		select {
 		case event := <-c.eventsCh:
 			if len(c.events) >= flushCount {
-				err := c.flush()
-				if err != nil {
+				if err := c.flush(); err != nil {
 					log.Errorf("events queue full and failed to flush events, discarding %v: %v",
 						event, trace.DebugReport(err))
 					continue
 				}
 			}
 			c.events = append(c.events, event)
-		case <-time.After(flushInterval):
-			err := c.flush()
-			if err != nil {
+		case <-ticker.C:
+			if err := c.flush(); err != nil {
 				log.Errorf("failed to flush events: %v",
 					trace.DebugReport(err))
 			}
 		case <-c.ctx.Done():
 			log.Debug("reporting client is shutting down")
+			if err := c.flush(); err != nil {
+				log.Errorf("failed to flush events: %v",
+					trace.DebugReport(err))
+			}
 			return
 		}
 	}
@@ -137,8 +141,7 @@ func (c *client) flush() error {
 	// if we fail to flush some events here, they will be retried on
 	// the next cycle, we may get duplicates but each event includes
 	// a unique ID which server sinks can use to de-duplicate
-	_, err := c.client.Record(context.TODO(), &grpcEvents)
-	if err != nil {
+	if _, err := c.client.Record(c.ctx, &grpcEvents); err != nil {
 		return trace.Wrap(err)
 	}
 	log.Debugf("flushed %v events", len(c.events))

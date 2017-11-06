@@ -18,23 +18,47 @@ package reporting
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"cloud.google.com/go/bigquery"
+	"github.com/gravitational/configure/jsonschema"
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
 )
 
 // Event defines an interface all event types should implement
 type Event interface {
-	// Type returns event type
-	Type() string
-	// SetAccountID sets the event account id
+	// GetName returns the event name
+	GetName() string
+	// GetMetadata returns the event metadata
+	GetMetadata() Metadata
+	// SetAccountID sets the event account ID
 	SetAccountID(string)
+}
+
+// Metadata represents event resource metadata
+type Metadata struct {
+	// Name is the event name
+	Name string `json:"name"`
+	// Created is the event creation timestamp
+	Created time.Time `json:"created"`
 }
 
 // ServerEvent represents server-related event, such as "logged into server"
 type ServerEvent struct {
+	// Kind is resource kind, for events it is "event"
+	Kind string `json:"kind"`
+	// Version is the event resource version
+	Version string `json:"version"`
+	// Metadata is the event metadata
+	Metadata Metadata `json:"metadata"`
+	// Spec is the event spec
+	Spec ServerEventSpec `json:"spec"`
+}
+
+// ServerEventSpec is server event specification
+type ServerEventSpec struct {
 	// ID is event ID, may be used for de-duplication
 	ID string `json:"id"`
 	// Action is event action, such as "login"
@@ -43,41 +67,61 @@ type ServerEvent struct {
 	AccountID string `json:"accountID"`
 	// ServerID is anonymized ID of server that triggered the event
 	ServerID string `json:"serverID"`
-	// Time is the event timestamp
-	Time time.Time `json:"time"`
 }
 
 // NewServerLoginEvent creates an instance of "server login" event
 func NewServerLoginEvent(serverID string) *ServerEvent {
 	return &ServerEvent{
-		ID:       uuid.New(),
-		Action:   EventActionLogin,
-		ServerID: serverID,
-		Time:     time.Now().UTC(),
+		Kind:    KindEvent,
+		Version: ResourceVersion,
+		Metadata: Metadata{
+			Name:    EventTypeServer,
+			Created: time.Now().UTC(),
+		},
+		Spec: ServerEventSpec{
+			ID:       uuid.New(),
+			Action:   EventActionLogin,
+			ServerID: serverID,
+		},
 	}
 }
 
-// Type returns the event type
-func (e *ServerEvent) Type() string { return EventTypeServer }
+// GetName returns the event name
+func (e *ServerEvent) GetName() string { return e.Metadata.Name }
+
+// GetMetadata returns the event metadata
+func (e *ServerEvent) GetMetadata() Metadata { return e.Metadata }
 
 // SetAccountID sets the event account id
 func (e *ServerEvent) SetAccountID(id string) {
-	e.AccountID = id
+	e.Spec.AccountID = id
 }
 
 // Save implements bigqquery.ValueSaver
 func (e *ServerEvent) Save() (map[string]bigquery.Value, string, error) {
 	return map[string]bigquery.Value{
-		"type":      e.Type(),
-		"action":    e.Action,
-		"accountID": e.AccountID,
-		"serverID":  e.ServerID,
-		"time":      e.Time.Unix(),
-	}, e.ID, nil
+		"type":      e.GetName(),
+		"action":    e.Spec.Action,
+		"accountID": e.Spec.AccountID,
+		"serverID":  e.Spec.ServerID,
+		"time":      e.GetMetadata().Created.Unix(),
+	}, e.Spec.ID, nil
 }
 
 // UserEvent represents user-related event, such as "user logged in"
 type UserEvent struct {
+	// Kind is resource kind, for events it is "event"
+	Kind string `json:"kind"`
+	// Version is the event resource version
+	Version string `json:"version"`
+	// Metadata is the event metadata
+	Metadata Metadata `json:"metadata"`
+	// Spec is the event spec
+	Spec UserEventSpec `json:"spec"`
+}
+
+// UserEventSpec is user event specification
+type UserEventSpec struct {
 	// ID is event ID, may be used for de-duplication
 	ID string `json:"id"`
 	// Action is event action, such as "login"
@@ -86,37 +130,45 @@ type UserEvent struct {
 	AccountID string `json:"accountID"`
 	// UserID is anonymized ID of user that triggered the event
 	UserID string `json:"userID"`
-	// Time is the event timestamp
-	Time time.Time `json:"time"`
 }
 
 // NewUserLoginEvent creates an instance of "user login" event
 func NewUserLoginEvent(userID string) *UserEvent {
 	return &UserEvent{
-		ID:     uuid.New(),
-		Action: EventActionLogin,
-		UserID: userID,
-		Time:   time.Now().UTC(),
+		Kind:    KindEvent,
+		Version: ResourceVersion,
+		Metadata: Metadata{
+			Name:    EventTypeUser,
+			Created: time.Now().UTC(),
+		},
+		Spec: UserEventSpec{
+			ID:     uuid.New(),
+			Action: EventActionLogin,
+			UserID: userID,
+		},
 	}
 }
 
-// Type returns the event type
-func (e *UserEvent) Type() string { return EventTypeUser }
+// GetName returns the event name
+func (e *UserEvent) GetName() string { return e.Metadata.Name }
+
+// GetMetadata returns the event metadata
+func (e *UserEvent) GetMetadata() Metadata { return e.Metadata }
 
 // SetAccountID sets the event account id
 func (e *UserEvent) SetAccountID(id string) {
-	e.AccountID = id
+	e.Spec.AccountID = id
 }
 
 // Save implements bigquery.ValueSaver
 func (e *UserEvent) Save() (map[string]bigquery.Value, string, error) {
 	return map[string]bigquery.Value{
-		"type":      e.Type(),
-		"action":    e.Action,
-		"accountID": e.AccountID,
-		"userID":    e.UserID,
-		"time":      e.Time.Unix(),
-	}, e.ID, nil
+		"type":      e.GetName(),
+		"action":    e.Spec.Action,
+		"accountID": e.Spec.AccountID,
+		"userID":    e.Spec.UserID,
+		"time":      e.GetMetadata().Created.Unix(),
+	}, e.Spec.ID, nil
 }
 
 // ToGRPCEvent converts provided event to the format used by gRPC server/client
@@ -126,28 +178,39 @@ func ToGRPCEvent(event Event) (*GRPCEvent, error) {
 		return nil, trace.Wrap(err)
 	}
 	return &GRPCEvent{
-		Type: event.Type(),
 		Data: payload,
 	}, nil
 }
 
 // FromGRPCEvent converts event from the format used by gRPC server/client
 func FromGRPCEvent(grpcEvent GRPCEvent) (Event, error) {
-	switch grpcEvent.Type {
+	var header eventHeader
+	if err := json.Unmarshal(grpcEvent.Data, &header); err != nil {
+		return nil, trace.Wrap(err)
+	}
+	if header.Kind != KindEvent {
+		return nil, trace.BadParameter("expected event resource kind %q, got %q",
+			KindEvent, header.Kind)
+	}
+	if header.Version != ResourceVersion {
+		return nil, trace.BadParameter("expected event resource version %q, got %q",
+			ResourceVersion, header.Version)
+	}
+	switch header.Metadata.Name {
 	case EventTypeServer:
 		var event ServerEvent
-		if err := json.Unmarshal(grpcEvent.Data, &event); err != nil {
+		if err := unmarshalWithSchema(getServerEventSchema(), grpcEvent.Data, &event); err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return &event, nil
 	case EventTypeUser:
 		var event UserEvent
-		if err := json.Unmarshal(grpcEvent.Data, &event); err != nil {
+		if err := unmarshalWithSchema(getUserEventSchema(), grpcEvent.Data, &event); err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return &event, nil
 	default:
-		return nil, trace.BadParameter("unknown event type %q", grpcEvent.Type)
+		return nil, trace.BadParameter("unknown event type %q", header.Metadata.Name)
 	}
 }
 
@@ -162,4 +225,96 @@ func FromGRPCEvents(grpcEvents GRPCEvents) ([]Event, error) {
 		events = append(events, event)
 	}
 	return events, nil
+}
+
+// eventHeader is used when unmarhsaling events sent over gRPC
+type eventHeader struct {
+	// Kind the the resource kind, shoud be "event"
+	Kind string `json:"kind"`
+	// Version is the event resource version
+	Version string `json:"version"`
+	// Metadata is the event metadata
+	Metadata Metadata `json:"metadata"`
+}
+
+// schemaTemplate is the event resource schema template
+const schemaTemplate = `{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["kind", "version", "metadata", "spec"],
+  "properties": {
+    "kind": {"type": "string"},
+    "version": {"type": "string", "default": "v2"},
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "created"],
+      "properties": {
+        "name": {"type": "string"},
+        "created": {"type": "string"}
+      }
+    },
+    "spec": %v
+  }
+}`
+
+// getServerEventSchema returns full server event JSON schema
+func getServerEventSchema() string {
+	return fmt.Sprintf(schemaTemplate, serverEventSchema)
+}
+
+// serverEventSchema is the server event spec schema
+const serverEventSchema = `{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "action", "accountID", "serverID"],
+  "properties": {
+    "id": {"type": "string"},
+    "action": {"type": "string"},
+    "accountID": {"type": "string"},
+    "serverID": {"type": "string"}
+  }
+}`
+
+// getUserEventSchema returns full user event JSON schema
+func getUserEventSchema() string {
+	return fmt.Sprintf(schemaTemplate, userEventSchema)
+}
+
+// userEventSchema is the user event spec schema
+const userEventSchema = `{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "action", "accountID", "userID"],
+  "properties": {
+    "id": {"type": "string"},
+    "action": {"type": "string"},
+    "accountID": {"type": "string"},
+    "userID": {"type": "string"}
+  }
+}`
+
+// unmarshalWithSchema unmarshals the provided data into the provided object
+// using specified JSON schema
+func unmarshalWithSchema(objectSchema string, data []byte, object interface{}) error {
+	schema, err := jsonschema.New([]byte(objectSchema))
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	raw := map[string]interface{}{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return trace.Wrap(err)
+	}
+	processed, err := schema.ProcessObject(raw)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	bytes, err := json.Marshal(processed)
+	if err != nil {
+		return trace.Wrap(err)
+	}
+	if err := json.Unmarshal(bytes, object); err != nil {
+		return trace.Wrap(err)
+	}
+	return nil
 }

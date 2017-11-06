@@ -47,18 +47,24 @@ func (r *ReportingSuite) SetUpSuite(c *check.C) {
 }
 
 func (r *ReportingSuite) TestReporting(c *check.C) {
-	event := &ServerEvent{
-		Action:    EventActionLogin,
-		AccountID: uuid.New(),
-		ServerID:  uuid.New(),
+	events := []Event{
+		NewServerLoginEvent(uuid.New()),
+		NewUserLoginEvent(uuid.New()),
 	}
-	r.client.Record(event)
-	select {
-	case received := <-r.eventsCh:
-		c.Assert(event, check.DeepEquals, received)
-	case <-time.After(testTimeout):
-		c.Fatal("timeout waiting for event")
+	for _, event := range events {
+		r.client.Record(event)
 	}
+	var received []Event
+	for i := 0; i < len(events); i++ {
+		select {
+		case e := <-r.eventsCh:
+			received = append(received, e)
+		case <-time.After(testTimeout):
+			c.Fatal("timeout waiting for events")
+		}
+	}
+	c.Assert(len(received), check.Equals, len(events))
+	c.Assert(received, check.DeepEquals, events)
 }
 
 // startTestServer starts gRPC events server that will be submitting events

@@ -23,10 +23,8 @@ import "google/protobuf/empty.proto";
 
 // GRPCEvent represents a single event sent over gRPC
 message GRPCEvent {
-  // Type is the event type such as "server log in" or "user log in"
-  string Type = 1;
   // Data is the JSON-encoded event payload
-  bytes Data = 2;
+  bytes Data = 1;
 }
 
 // Events defines a series of events sent over gRPC

@@ -22,7 +22,7 @@ const (
 	// flushInterval is how often the client flushes accumulated events
 	flushInterval = 3 * time.Second
 	// flushCount is the number of events to accumulate before flush triggers
-	flushCount = 1
+	flushCount = 5
 	// bqDatasetName is the BigQuery dataset name
 	bqDatasetName = "houston"
 	// bqTableName is the BigQuery events table name
@@ -33,6 +33,10 @@ const (
 	EventTypeUser = "user"
 	// EventActionLogin is the event login action
 	EventActionLogin = "login"
+	// KindEvent is the event resource kind
+	KindEvent = "event"
+	// ResourceVersion is the current event resource version
+	ResourceVersion = "v2"
 	// testTimeout is how long to wait for events during tests
 	testTimeout = 5 * time.Second
 )

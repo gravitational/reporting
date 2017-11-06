@@ -19,6 +19,7 @@ package reporting
 import (
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/gravitational/trace"
+	log "github.com/sirupsen/logrus"
 	context "golang.org/x/net/context"
 )
 
@@ -43,11 +44,13 @@ type server struct {
 func (s *server) Record(ctx context.Context, grpcEvents *GRPCEvents) (*empty.Empty, error) {
 	events, err := FromGRPCEvents(*grpcEvents)
 	if err != nil {
+		log.Errorf(trace.DebugReport(err))
 		return nil, trace.Wrap(err)
 	}
 	for _, sink := range s.Sinks {
 		err := sink.Put(events)
 		if err != nil {
+			log.Error(trace.DebugReport(err))
 			return nil, trace.Wrap(err)
 		}
 	}
