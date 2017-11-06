@@ -41,7 +41,9 @@ type logSink struct{}
 // Put logs provided events
 func (s *logSink) Put(events []Event) error {
 	for _, event := range events {
-		log.Infof("logSink: %#v", event)
+		log.WithFields(log.Fields(map[string]interface{}{
+			"event": event,
+		})).Info("logSink")
 	}
 	return nil
 }
