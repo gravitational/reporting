@@ -130,15 +130,14 @@ func (q *bigQuerySink) initSchema() error {
 		log.Debugf("dataset %q already exists", bqDatasetName)
 	}
 	table := dataset.Table(bqTableName)
-	err = table.Delete(context.Background())
-	if err != nil {
-		return trace.Wrap(err)
-	}
 	err = table.Create(context.Background(), &bigquery.TableMetadata{
 		Schema: tableSchema,
 	})
 	if err != nil {
-		return trace.Wrap(err)
+		if !strings.Contains(err.Error(), "Already Exists") {
+			return trace.Wrap(err)
+		}
+		log.Debugf("table %q already exists", bqTableName)
 	}
 	return nil
 }
