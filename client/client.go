@@ -14,12 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package reporting
+package client
 
 import (
 	"context"
 	"crypto/tls"
 	"time"
+
+	"github.com/gravitational/reporting"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -42,7 +44,7 @@ type ClientConfig struct {
 // Client defines the reporting client interface
 type Client interface {
 	// Record records an event
-	Record(Event)
+	Record(reporting.Event)
 }
 
 // NewClient returns a new reporting gRPC client
@@ -58,11 +60,11 @@ func NewClient(ctx context.Context, config ClientConfig) (*client, error) {
 		return nil, trace.Wrap(err)
 	}
 	client := &client{
-		client: NewEventsServiceClient(conn),
+		client: reporting.NewEventsServiceClient(conn),
 		// give an extra room to the events channel in case events
 		// are generated faster we can flush them (unlikely due to
 		// our events nature)
-		eventsCh: make(chan Event, 5*flushCount),
+		eventsCh: make(chan reporting.Event, 5*flushCount),
 		ctx:      ctx,
 	}
 	go client.receiveAndFlushEvents()
@@ -70,19 +72,19 @@ func NewClient(ctx context.Context, config ClientConfig) (*client, error) {
 }
 
 type client struct {
-	client EventsServiceClient
+	client reporting.EventsServiceClient
 	// eventsCh is the channel where events are submitted before they are
 	// put into internal buffer
-	eventsCh chan Event
+	eventsCh chan reporting.Event
 	// events is the internal events buffer that gets flushed periodically
-	events []Event
+	events []reporting.Event
 	// ctx may be used to stop client goroutine
 	ctx context.Context
 }
 
 // Record records an event. Note that the client accumulates events in memory
 // and flushes them every once in a while
-func (c *client) Record(event Event) {
+func (c *client) Record(event reporting.Event) {
 	select {
 	case c.eventsCh <- event:
 		log.Debugf("queued %v", event)
@@ -129,9 +131,9 @@ func (c *client) flush() error {
 	if len(c.events) == 0 {
 		return nil // nothing to flush
 	}
-	var grpcEvents GRPCEvents
+	var grpcEvents reporting.GRPCEvents
 	for _, event := range c.events {
-		grpcEvent, err := ToGRPCEvent(event)
+		grpcEvent, err := reporting.ToGRPCEvent(event)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -145,6 +147,13 @@ func (c *client) flush() error {
 		return trace.Wrap(err)
 	}
 	log.Debugf("flushed %v events", len(c.events))
-	c.events = []Event{}
+	c.events = []reporting.Event{}
 	return nil
 }
+
+const (
+	// flushInterval is how often the client flushes accumulated events
+	flushInterval = 3 * time.Second
+	// flushCount is the number of events to accumulate before flush triggers
+	flushCount = 5
+)

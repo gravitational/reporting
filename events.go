@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"cloud.google.com/go/bigquery"
 	"github.com/gravitational/configure/jsonschema"
 	"github.com/gravitational/trace"
 	"github.com/pborman/uuid"
@@ -92,20 +91,9 @@ func (e *ServerEvent) GetName() string { return e.Metadata.Name }
 // GetMetadata returns the event metadata
 func (e *ServerEvent) GetMetadata() Metadata { return e.Metadata }
 
-// SetAccountID sets the event account id
+// SetAccountID sets the event account ID
 func (e *ServerEvent) SetAccountID(id string) {
 	e.Spec.AccountID = id
-}
-
-// Save implements bigqquery.ValueSaver
-func (e *ServerEvent) Save() (map[string]bigquery.Value, string, error) {
-	return map[string]bigquery.Value{
-		"type":      e.GetName(),
-		"action":    e.Spec.Action,
-		"accountID": e.Spec.AccountID,
-		"serverID":  e.Spec.ServerID,
-		"time":      e.GetMetadata().Created.Unix(),
-	}, e.Spec.ID, nil
 }
 
 // UserEvent represents user-related event, such as "user logged in"
@@ -158,17 +146,6 @@ func (e *UserEvent) GetMetadata() Metadata { return e.Metadata }
 // SetAccountID sets the event account id
 func (e *UserEvent) SetAccountID(id string) {
 	e.Spec.AccountID = id
-}
-
-// Save implements bigquery.ValueSaver
-func (e *UserEvent) Save() (map[string]bigquery.Value, string, error) {
-	return map[string]bigquery.Value{
-		"type":      e.GetName(),
-		"action":    e.Spec.Action,
-		"accountID": e.Spec.AccountID,
-		"userID":    e.Spec.UserID,
-		"time":      e.GetMetadata().Created.Unix(),
-	}, e.Spec.ID, nil
 }
 
 // ToGRPCEvent converts provided event to the format used by gRPC server/client
