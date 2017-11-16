@@ -14,11 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package reporting
+package server
 
 import (
 	"context"
 	"strings"
+	"time"
+
+	"github.com/gravitational/reporting"
 
 	"cloud.google.com/go/bigquery"
 	"github.com/gravitational/trace"
@@ -28,7 +31,7 @@ import (
 // Sink defines an event sink interface
 type Sink interface {
 	// Put saves a series of events
-	Put([]Event) error
+	Put([]reporting.Event) error
 }
 
 // NewLogSink returns a new sink that just logs events
@@ -39,7 +42,7 @@ func NewLogSink() *logSink {
 type logSink struct{}
 
 // Put logs provided events
-func (s *logSink) Put(events []Event) error {
+func (s *logSink) Put(events []reporting.Event) error {
 	for _, event := range events {
 		log.WithFields(log.Fields(map[string]interface{}{
 			"event": event,
@@ -49,16 +52,16 @@ func (s *logSink) Put(events []Event) error {
 }
 
 // NewChannelSink returns a new sink that submits events into the provided channel
-func NewChannelSink(ch chan Event) *chanSink {
+func NewChannelSink(ch chan reporting.Event) *chanSink {
 	return &chanSink{ch: ch}
 }
 
 type chanSink struct {
-	ch chan Event
+	ch chan reporting.Event
 }
 
 // Put submits events into the channel the sink was initialized with
-func (s *chanSink) Put(events []Event) error {
+func (s *chanSink) Put(events []reporting.Event) error {
 	for _, event := range events {
 		s.ch <- event
 	}
@@ -103,9 +106,13 @@ type bigQuerySink struct {
 }
 
 // Put saves a series of events into Google BigQuery
-func (q *bigQuerySink) Put(events []Event) error {
+func (q *bigQuerySink) Put(events []reporting.Event) error {
 	uploader := q.client.Dataset(bqDatasetName).Table(bqTableName).Uploader()
-	err := uploader.Put(context.Background(), events)
+	// in case of persistent error the call will run indefinitely so
+	// pass a context with timeout to prevent hanging calls
+	ctx, cancel := context.WithTimeout(context.Background(), bqUploadTimeout)
+	defer cancel() // release resources if operation completed before timeout
+	err := uploader.Put(ctx, eventsToStructSavers(events))
 	if err != nil {
 		if pme, ok := err.(bigquery.PutMultiError); ok {
 			var errors []error
@@ -142,6 +149,81 @@ func (q *bigQuerySink) initSchema() error {
 	return nil
 }
 
+// eventsToStructSavers converts a slice of events into the format accepted by
+// the BigQuery client with proper schema
+func eventsToStructSavers(events []reporting.Event) []*bigquery.StructSaver {
+	savers := make([]*bigquery.StructSaver, len(events))
+	for i, event := range events {
+		saver, err := eventToStructSaver(event)
+		if err != nil {
+			log.Warnf(trace.DebugReport(err))
+		} else {
+			savers[i] = saver
+		}
+	}
+	return savers
+}
+
+// eventToStructSaver converts a single event to a BigQuery struct saver
+func eventToStructSaver(event reporting.Event) (*bigquery.StructSaver, error) {
+	switch e := event.(type) {
+	case *reporting.ServerEvent:
+		return &bigquery.StructSaver{
+			Schema:   tableSchema,
+			InsertID: e.Spec.ID,
+			Struct: bqServerEvent{
+				Type:      e.GetName(),
+				Action:    e.Spec.Action,
+				AccountID: e.Spec.AccountID,
+				ServerID:  e.Spec.ServerID,
+				Time:      e.GetMetadata().Created.Unix(),
+			},
+		}, nil
+	case *reporting.UserEvent:
+		return &bigquery.StructSaver{
+			Schema:   tableSchema,
+			InsertID: e.Spec.ID,
+			Struct: bqUserEvent{
+				Type:      e.GetName(),
+				Action:    e.Spec.Action,
+				AccountID: e.Spec.AccountID,
+				UserID:    e.Spec.UserID,
+				Time:      e.GetMetadata().Created.Unix(),
+			},
+		}, nil
+	default:
+		return nil, trace.BadParameter("unsupported event type %T: %v", e, e)
+	}
+}
+
+// bqServerEvents represents BigQuery server event schema
+type bqServerEvent struct {
+	// Type is the event type
+	Type string
+	// Action is the event action
+	Action string
+	// AccountID is ID of account that triggered the event
+	AccountID string
+	// ServerID is ID of server that triggered the event
+	ServerID string
+	// Time is the event timestamp
+	Time int64
+}
+
+// bqUserEvent represents BigQuery user event schema
+type bqUserEvent struct {
+	// Type is the event type
+	Type string
+	// Action is the event action
+	Action string
+	// AccountID is ID of account that triggered the event
+	AccountID string
+	// UserID is ID of user that triggered the event
+	UserID string
+	// Time is the event timestamp
+	Time int64
+}
+
 // tableSchema describes BigQuery events table schema
 var tableSchema = bigquery.Schema{
 	{
@@ -173,3 +255,12 @@ var tableSchema = bigquery.Schema{
 		Type: bigquery.StringFieldType,
 	},
 }
+
+const (
+	// bqDatasetName is the BigQuery dataset name
+	bqDatasetName = "houston"
+	// bqTableName is the BigQuery events table name
+	bqTableName = "events"
+	// bqUploadTimeout is how long the upload method should retry in case of failures
+	bqUploadTimeout = 10 * time.Second
+)

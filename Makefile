@@ -10,11 +10,11 @@ all: grpc build
 
 .PHONY: build
 build:
-	go build .
+	go build ./...
 
 .PHONY: test
 test:
-	go test -v .
+	go test -v ./...
 
 .PHONY: buildbox
 buildbox:
