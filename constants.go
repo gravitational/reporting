@@ -17,14 +17,20 @@ limitations under the License.
 package reporting
 
 const (
+	// ResourceVersion is the current event resource version
+	ResourceVersion = "v2"
+	// KindEvent is the event resource kind
+	KindEvent = "event"
 	// EventTypeServer is the server-related event type
 	EventTypeServer = "server"
 	// EventTypeUser is the user-related event type
 	EventTypeUser = "user"
 	// EventActionLogin is the event login action
 	EventActionLogin = "login"
-	// KindEvent is the event resource kind
-	KindEvent = "event"
-	// ResourceVersion is the current event resource version
-	ResourceVersion = "v2"
+	// KindNotification is the user notification resource kind
+	KindNotification = "notification"
+	// NotificationTypeUsage is the usage limit notification type
+	NotificationTypeUsage = "usage"
+	// NotificationTypeTOS is the terms of service violation notification type
+	NotificationTypeTOS = "tos"
 )

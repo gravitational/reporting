@@ -25,6 +25,7 @@ import (
 
 	"github.com/gravitational/reporting"
 	rclient "github.com/gravitational/reporting/client"
+	"github.com/gravitational/reporting/types"
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/gravitational/license/authority"
@@ -38,27 +39,27 @@ func TestReporting(t *testing.T) { check.TestingT(t) }
 
 type ReportingSuite struct {
 	client   rclient.Client
-	eventsCh chan reporting.Event
+	eventsCh chan types.Event
 }
 
 var _ = check.Suite(&ReportingSuite{})
 
 func (r *ReportingSuite) SetUpSuite(c *check.C) {
-	r.eventsCh = make(chan reporting.Event, 10)
+	r.eventsCh = make(chan types.Event, 10)
 	serverAddr := startTestServer(c, r.eventsCh)
 	r.client = getTestClient(c, serverAddr)
 }
 
 // TestReporting tests real client/server communication
 func (r *ReportingSuite) TestReporting(c *check.C) {
-	events := []reporting.Event{
-		reporting.NewServerLoginEvent(uuid.New()),
-		reporting.NewUserLoginEvent(uuid.New()),
+	events := []types.Event{
+		types.NewServerLoginEvent(uuid.New()),
+		types.NewUserLoginEvent(uuid.New()),
 	}
 	for _, event := range events {
 		r.client.Record(event)
 	}
-	var received []reporting.Event
+	var received []types.Event
 	for i := 0; i < len(events); i++ {
 		select {
 		case e := <-r.eventsCh:
@@ -73,9 +74,9 @@ func (r *ReportingSuite) TestReporting(c *check.C) {
 
 // TestBQStructSavers tests converting events to BigQuery struct savers
 func (r *ReportingSuite) TestBQStructSavers(c *check.C) {
-	event1 := reporting.NewServerLoginEvent(uuid.New())
-	event2 := reporting.NewUserLoginEvent(uuid.New())
-	savers := eventsToStructSavers([]reporting.Event{event1, event2})
+	event1 := types.NewServerLoginEvent(uuid.New())
+	event2 := types.NewUserLoginEvent(uuid.New())
+	savers := eventsToStructSavers([]types.Event{event1, event2})
 	c.Assert(len(savers), check.Equals, 2)
 	c.Assert(savers[0].InsertID, check.Equals, event1.Spec.ID)
 	c.Assert(savers[1].InsertID, check.Equals, event2.Spec.ID)
@@ -83,7 +84,7 @@ func (r *ReportingSuite) TestBQStructSavers(c *check.C) {
 
 // startTestServer starts gRPC events server that will be submitting events
 // into the provided channel, and returns the server address
-func startTestServer(c *check.C, ch chan reporting.Event) (addr string) {
+func startTestServer(c *check.C, ch chan types.Event) (addr string) {
 	// generate certificate authority
 	ca, err := authority.GenerateSelfSignedCA(csr.CertificateRequest{CN: "localhost"})
 	c.Assert(err, check.IsNil)

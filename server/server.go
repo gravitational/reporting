@@ -18,6 +18,7 @@ package server
 
 import (
 	"github.com/gravitational/reporting"
+	"github.com/gravitational/reporting/types"
 
 	"github.com/golang/protobuf/ptypes/empty"
 	"github.com/gravitational/trace"
@@ -44,7 +45,7 @@ type server struct {
 
 // Record accepts events over gRPC and saves them in the configured sinks
 func (s *server) Record(ctx context.Context, grpcEvents *reporting.GRPCEvents) (*empty.Empty, error) {
-	events, err := reporting.FromGRPCEvents(*grpcEvents)
+	events, err := types.FromGRPCEvents(*grpcEvents)
 	if err != nil {
 		log.Errorf(trace.DebugReport(err))
 		return nil, trace.Wrap(err)

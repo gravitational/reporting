@@ -21,7 +21,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gravitational/reporting"
+	"github.com/gravitational/reporting/types"
 
 	"cloud.google.com/go/bigquery"
 	"github.com/gravitational/trace"
@@ -31,7 +31,7 @@ import (
 // Sink defines an event sink interface
 type Sink interface {
 	// Put saves a series of events
-	Put([]reporting.Event) error
+	Put([]types.Event) error
 }
 
 // NewLogSink returns a new sink that just logs events
@@ -42,7 +42,7 @@ func NewLogSink() *logSink {
 type logSink struct{}
 
 // Put logs provided events
-func (s *logSink) Put(events []reporting.Event) error {
+func (s *logSink) Put(events []types.Event) error {
 	for _, event := range events {
 		log.WithFields(log.Fields(map[string]interface{}{
 			"event": event,
@@ -52,16 +52,16 @@ func (s *logSink) Put(events []reporting.Event) error {
 }
 
 // NewChannelSink returns a new sink that submits events into the provided channel
-func NewChannelSink(ch chan reporting.Event) *chanSink {
+func NewChannelSink(ch chan types.Event) *chanSink {
 	return &chanSink{ch: ch}
 }
 
 type chanSink struct {
-	ch chan reporting.Event
+	ch chan types.Event
 }
 
 // Put submits events into the channel the sink was initialized with
-func (s *chanSink) Put(events []reporting.Event) error {
+func (s *chanSink) Put(events []types.Event) error {
 	for _, event := range events {
 		s.ch <- event
 	}
@@ -70,8 +70,9 @@ func (s *chanSink) Put(events []reporting.Event) error {
 
 // BigQueryConfig is config for Google BigQuery sink
 type BigQueryConfig struct {
-	// ProjectID is the GCP project ID. Note that proper authentication should be setup
-	// as described in https://cloud.google.com/docs/authentication/getting-started
+	// ProjectID is the GCP project ID. Note that proper authentication should
+	// be setup as described in
+	// https://cloud.google.com/docs/authentication/getting-started
 	ProjectID string `json:"projectID"`
 }
 
@@ -106,7 +107,7 @@ type bigQuerySink struct {
 }
 
 // Put saves a series of events into Google BigQuery
-func (q *bigQuerySink) Put(events []reporting.Event) error {
+func (q *bigQuerySink) Put(events []types.Event) error {
 	uploader := q.client.Dataset(bqDatasetName).Table(bqTableName).Uploader()
 	// in case of persistent error the call will run indefinitely so
 	// pass a context with timeout to prevent hanging calls
@@ -151,7 +152,7 @@ func (q *bigQuerySink) initSchema() error {
 
 // eventsToStructSavers converts a slice of events into the format accepted by
 // the BigQuery client with proper schema
-func eventsToStructSavers(events []reporting.Event) []*bigquery.StructSaver {
+func eventsToStructSavers(events []types.Event) []*bigquery.StructSaver {
 	savers := make([]*bigquery.StructSaver, len(events))
 	for i, event := range events {
 		saver, err := eventToStructSaver(event)
@@ -165,9 +166,9 @@ func eventsToStructSavers(events []reporting.Event) []*bigquery.StructSaver {
 }
 
 // eventToStructSaver converts a single event to a BigQuery struct saver
-func eventToStructSaver(event reporting.Event) (*bigquery.StructSaver, error) {
+func eventToStructSaver(event types.Event) (*bigquery.StructSaver, error) {
 	switch e := event.(type) {
-	case *reporting.ServerEvent:
+	case *types.ServerEvent:
 		return &bigquery.StructSaver{
 			Schema:   tableSchema,
 			InsertID: e.Spec.ID,
@@ -179,7 +180,7 @@ func eventToStructSaver(event reporting.Event) (*bigquery.StructSaver, error) {
 				Time:      e.GetMetadata().Created.Unix(),
 			},
 		}, nil
-	case *reporting.UserEvent:
+	case *types.UserEvent:
 		return &bigquery.StructSaver{
 			Schema:   tableSchema,
 			InsertID: e.Spec.ID,

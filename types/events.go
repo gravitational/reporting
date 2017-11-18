@@ -14,12 +14,14 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package reporting
+package types
 
 import (
 	"encoding/json"
 	"fmt"
 	"time"
+
+	"github.com/gravitational/reporting"
 
 	"github.com/gravitational/configure/jsonschema"
 	"github.com/gravitational/trace"
@@ -71,15 +73,15 @@ type ServerEventSpec struct {
 // NewServerLoginEvent creates an instance of "server login" event
 func NewServerLoginEvent(serverID string) *ServerEvent {
 	return &ServerEvent{
-		Kind:    KindEvent,
-		Version: ResourceVersion,
+		Kind:    reporting.KindEvent,
+		Version: reporting.ResourceVersion,
 		Metadata: Metadata{
-			Name:    EventTypeServer,
+			Name:    reporting.EventTypeServer,
 			Created: time.Now().UTC(),
 		},
 		Spec: ServerEventSpec{
 			ID:       uuid.New(),
-			Action:   EventActionLogin,
+			Action:   reporting.EventActionLogin,
 			ServerID: serverID,
 		},
 	}
@@ -123,15 +125,15 @@ type UserEventSpec struct {
 // NewUserLoginEvent creates an instance of "user login" event
 func NewUserLoginEvent(userID string) *UserEvent {
 	return &UserEvent{
-		Kind:    KindEvent,
-		Version: ResourceVersion,
+		Kind:    reporting.KindEvent,
+		Version: reporting.ResourceVersion,
 		Metadata: Metadata{
-			Name:    EventTypeUser,
+			Name:    reporting.EventTypeUser,
 			Created: time.Now().UTC(),
 		},
 		Spec: UserEventSpec{
 			ID:     uuid.New(),
-			Action: EventActionLogin,
+			Action: reporting.EventActionLogin,
 			UserID: userID,
 		},
 	}
@@ -149,40 +151,44 @@ func (e *UserEvent) SetAccountID(id string) {
 }
 
 // ToGRPCEvent converts provided event to the format used by gRPC server/client
-func ToGRPCEvent(event Event) (*GRPCEvent, error) {
+func ToGRPCEvent(event Event) (*reporting.GRPCEvent, error) {
 	payload, err := json.Marshal(event)
 	if err != nil {
 		return nil, trace.Wrap(err)
 	}
-	return &GRPCEvent{
+	return &reporting.GRPCEvent{
 		Data: payload,
 	}, nil
 }
 
 // FromGRPCEvent converts event from the format used by gRPC server/client
-func FromGRPCEvent(grpcEvent GRPCEvent) (Event, error) {
+func FromGRPCEvent(grpcEvent reporting.GRPCEvent) (Event, error) {
 	var header eventHeader
 	if err := json.Unmarshal(grpcEvent.Data, &header); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if header.Kind != KindEvent {
-		return nil, trace.BadParameter("expected event resource kind %q, got %q",
-			KindEvent, header.Kind)
+	if header.Kind != reporting.KindEvent {
+		return nil, trace.BadParameter("expected kind %q, got %q",
+			reporting.KindEvent, header.Kind)
 	}
-	if header.Version != ResourceVersion {
-		return nil, trace.BadParameter("expected event resource version %q, got %q",
-			ResourceVersion, header.Version)
+	if header.Version != reporting.ResourceVersion {
+		return nil, trace.BadParameter("expected resource version %q, got %q",
+			reporting.ResourceVersion, header.Version)
 	}
 	switch header.Metadata.Name {
-	case EventTypeServer:
+	case reporting.EventTypeServer:
 		var event ServerEvent
-		if err := unmarshalWithSchema(getServerEventSchema(), grpcEvent.Data, &event); err != nil {
+		err := unmarshalWithSchema(
+			getServerEventSchema(), grpcEvent.Data, &event)
+		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return &event, nil
-	case EventTypeUser:
+	case reporting.EventTypeUser:
 		var event UserEvent
-		if err := unmarshalWithSchema(getUserEventSchema(), grpcEvent.Data, &event); err != nil {
+		err := unmarshalWithSchema(
+			getUserEventSchema(), grpcEvent.Data, &event)
+		if err != nil {
 			return nil, trace.Wrap(err)
 		}
 		return &event, nil
@@ -192,7 +198,7 @@ func FromGRPCEvent(grpcEvent GRPCEvent) (Event, error) {
 }
 
 // FromGRPCEvents converts a series of events from the format used by gRPC server/client
-func FromGRPCEvents(grpcEvents GRPCEvents) ([]Event, error) {
+func FromGRPCEvents(grpcEvents reporting.GRPCEvents) ([]Event, error) {
 	var events []Event
 	for _, grpcEvent := range grpcEvents.Events {
 		event, err := FromGRPCEvent(*grpcEvent)

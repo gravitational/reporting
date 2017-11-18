@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/gravitational/reporting"
+	"github.com/gravitational/reporting/types"
 
 	"github.com/gravitational/trace"
 	log "github.com/sirupsen/logrus"
@@ -44,7 +45,7 @@ type ClientConfig struct {
 // Client defines the reporting client interface
 type Client interface {
 	// Record records an event
-	Record(reporting.Event)
+	Record(types.Event)
 }
 
 // NewClient returns a new reporting gRPC client
@@ -64,7 +65,7 @@ func NewClient(ctx context.Context, config ClientConfig) (*client, error) {
 		// give an extra room to the events channel in case events
 		// are generated faster we can flush them (unlikely due to
 		// our events nature)
-		eventsCh: make(chan reporting.Event, 5*flushCount),
+		eventsCh: make(chan types.Event, 5*flushCount),
 		ctx:      ctx,
 	}
 	go client.receiveAndFlushEvents()
@@ -75,16 +76,16 @@ type client struct {
 	client reporting.EventsServiceClient
 	// eventsCh is the channel where events are submitted before they are
 	// put into internal buffer
-	eventsCh chan reporting.Event
+	eventsCh chan types.Event
 	// events is the internal events buffer that gets flushed periodically
-	events []reporting.Event
+	events []types.Event
 	// ctx may be used to stop client goroutine
 	ctx context.Context
 }
 
 // Record records an event. Note that the client accumulates events in memory
 // and flushes them every once in a while
-func (c *client) Record(event reporting.Event) {
+func (c *client) Record(event types.Event) {
 	select {
 	case c.eventsCh <- event:
 		log.Debugf("queued %v", event)
@@ -133,7 +134,7 @@ func (c *client) flush() error {
 	}
 	var grpcEvents reporting.GRPCEvents
 	for _, event := range c.events {
-		grpcEvent, err := reporting.ToGRPCEvent(event)
+		grpcEvent, err := types.ToGRPCEvent(event)
 		if err != nil {
 			return trace.Wrap(err)
 		}
@@ -147,7 +148,7 @@ func (c *client) flush() error {
 		return trace.Wrap(err)
 	}
 	log.Debugf("flushed %v events", len(c.events))
-	c.events = []reporting.Event{}
+	c.events = []types.Event{}
 	return nil
 }
 
