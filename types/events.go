@@ -163,7 +163,7 @@ func ToGRPCEvent(event Event) (*reporting.GRPCEvent, error) {
 
 // FromGRPCEvent converts event from the format used by gRPC server/client
 func FromGRPCEvent(grpcEvent reporting.GRPCEvent) (Event, error) {
-	var header eventHeader
+	var header resourceHeader
 	if err := json.Unmarshal(grpcEvent.Data, &header); err != nil {
 		return nil, trace.Wrap(err)
 	}
@@ -210,13 +210,13 @@ func FromGRPCEvents(grpcEvents reporting.GRPCEvents) ([]Event, error) {
 	return events, nil
 }
 
-// eventHeader is used when unmarhsaling events sent over gRPC
-type eventHeader struct {
-	// Kind the the resource kind, shoud be "event"
+// resourceHeader is used when unmarhsaling resources
+type resourceHeader struct {
+	// Kind the the resource kind
 	Kind string `json:"kind"`
-	// Version is the event resource version
+	// Version is the resource version
 	Version string `json:"version"`
-	// Metadata is the event metadata
+	// Metadata is the resource metadata
 	Metadata Metadata `json:"metadata"`
 }
 
@@ -300,4 +300,21 @@ func unmarshalWithSchema(objectSchema string, data []byte, object interface{}) e
 		return trace.Wrap(err)
 	}
 	return nil
+}
+
+// marshalWithSchema marshals the provided objects while checking the specified schema
+func marshalWithSchema(objectSchema string, object interface{}) ([]byte, error) {
+	schema, err := jsonschema.New([]byte(objectSchema))
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	processed, err := schema.ProcessObject(object)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	bytes, err := json.Marshal(processed)
+	if err != nil {
+		return nil, trace.Wrap(err)
+	}
+	return bytes, nil
 }

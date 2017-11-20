@@ -27,10 +27,10 @@ const (
 	EventTypeUser = "user"
 	// EventActionLogin is the event login action
 	EventActionLogin = "login"
-	// KindNotification is the user notification resource kind
-	KindNotification = "notification"
-	// NotificationTypeUsage is the usage limit notification type
-	NotificationTypeUsage = "usage"
-	// NotificationTypeTOS is the terms of service violation notification type
-	NotificationTypeTOS = "tos"
+	// KindHeartbeat is the heartbeat resource kind
+	KindHeartbeat = "heartbeat"
+	// NotificationUsage is the usage limit notification type
+	NotificationUsage = "usage"
+	// NotificationTerms is the terms of service violation notification type
+	NotificationTerms = "terms"
 )

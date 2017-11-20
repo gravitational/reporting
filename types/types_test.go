@@ -17,12 +17,10 @@ limitations under the License.
 package types
 
 import (
-	"encoding/json"
 	"testing"
 
 	"github.com/gravitational/reporting"
 
-	"github.com/pborman/uuid"
 	check "gopkg.in/check.v1"
 )
 
@@ -32,29 +30,34 @@ type TypesSuite struct{}
 
 var _ = check.Suite(&TypesSuite{})
 
-func (r *TypesSuite) TestNotifications(c *check.C) {
-	n1 := NewNotification(
-		reporting.NotificationTypeUsage,
-		NotificationSpec{
-			AccountID: uuid.New(),
-			Severity:  "warning",
-			Text:      "Usage limit exceeded",
-			HTML:      "<div>Usage limit exceeded</div>",
+func (s *TypesSuite) TestHeartbeat(c *check.C) {
+	h := NewHeartbeat(
+		Notification{
+			Type:     reporting.NotificationUsage,
+			Severity: "warning",
+			Text:     "Usage limit exceeded",
+			HTML:     "<div>Usage limit exceeded</div>",
+		},
+		Notification{
+			Type:     reporting.NotificationTerms,
+			Severity: "error",
+			Text:     "Terms of service violation",
+			HTML:     "<div>Terms of service violation</div>",
 		})
-	n2 := NewNotification(
-		reporting.NotificationTypeTOS,
-		NotificationSpec{
-			AccountID: uuid.New(),
-			Severity:  "error",
-			Text:      "Terms of service violation",
-			HTML:      "<div>Terms of service violation</div>",
-		})
-	for _, n := range []Notification{*n1, *n2} {
-		bytes, err := json.Marshal(n)
-		c.Assert(err, check.IsNil)
-		var unmarshaled Notification
-		err = json.Unmarshal(bytes, &unmarshaled)
-		c.Assert(err, check.IsNil)
-		c.Assert(unmarshaled, check.DeepEquals, n)
-	}
+	bytes, err := MarshalHeartbeat(*h)
+	c.Assert(err, check.IsNil)
+	unmarshaled, err := UnmarshalHeartbeat(bytes)
+	c.Assert(err, check.IsNil)
+	c.Assert(len(unmarshaled.Spec.Notifications), check.Equals, 2)
+	c.Assert(unmarshaled, check.DeepEquals, h)
+}
+
+func (s *TypesSuite) TestEmptyHeartbeat(c *check.C) {
+	h := NewHeartbeat()
+	bytes, err := MarshalHeartbeat(*h)
+	c.Assert(err, check.IsNil)
+	unmarshaled, err := UnmarshalHeartbeat(bytes)
+	c.Assert(err, check.IsNil)
+	c.Assert(len(unmarshaled.Spec.Notifications), check.Equals, 0)
+	c.Assert(unmarshaled, check.DeepEquals, h)
 }
