@@ -19,8 +19,6 @@ package types
 import (
 	"testing"
 
-	"github.com/gravitational/reporting"
-
 	check "gopkg.in/check.v1"
 )
 
@@ -33,14 +31,14 @@ var _ = check.Suite(&TypesSuite{})
 func (s *TypesSuite) TestHeartbeat(c *check.C) {
 	h := NewHeartbeat(
 		Notification{
-			Type:     reporting.NotificationUsage,
-			Severity: "warning",
+			Type:     NotificationUsage,
+			Severity: SeverityWarning,
 			Text:     "Usage limit exceeded",
 			HTML:     "<div>Usage limit exceeded</div>",
 		},
 		Notification{
-			Type:     reporting.NotificationTerms,
-			Severity: "error",
+			Type:     NotificationTerms,
+			Severity: SeverityError,
 			Text:     "Terms of service violation",
 			HTML:     "<div>Terms of service violation</div>",
 		})

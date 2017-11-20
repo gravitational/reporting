@@ -73,15 +73,15 @@ type ServerEventSpec struct {
 // NewServerLoginEvent creates an instance of "server login" event
 func NewServerLoginEvent(serverID string) *ServerEvent {
 	return &ServerEvent{
-		Kind:    reporting.KindEvent,
-		Version: reporting.ResourceVersion,
+		Kind:    KindEvent,
+		Version: ResourceVersion,
 		Metadata: Metadata{
-			Name:    reporting.EventTypeServer,
+			Name:    EventTypeServer,
 			Created: time.Now().UTC(),
 		},
 		Spec: ServerEventSpec{
 			ID:       uuid.New(),
-			Action:   reporting.EventActionLogin,
+			Action:   EventActionLogin,
 			ServerID: serverID,
 		},
 	}
@@ -125,15 +125,15 @@ type UserEventSpec struct {
 // NewUserLoginEvent creates an instance of "user login" event
 func NewUserLoginEvent(userID string) *UserEvent {
 	return &UserEvent{
-		Kind:    reporting.KindEvent,
-		Version: reporting.ResourceVersion,
+		Kind:    KindEvent,
+		Version: ResourceVersion,
 		Metadata: Metadata{
-			Name:    reporting.EventTypeUser,
+			Name:    EventTypeUser,
 			Created: time.Now().UTC(),
 		},
 		Spec: UserEventSpec{
 			ID:     uuid.New(),
-			Action: reporting.EventActionLogin,
+			Action: EventActionLogin,
 			UserID: userID,
 		},
 	}
@@ -167,16 +167,16 @@ func FromGRPCEvent(grpcEvent reporting.GRPCEvent) (Event, error) {
 	if err := json.Unmarshal(grpcEvent.Data, &header); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if header.Kind != reporting.KindEvent {
+	if header.Kind != KindEvent {
 		return nil, trace.BadParameter("expected kind %q, got %q",
-			reporting.KindEvent, header.Kind)
+			KindEvent, header.Kind)
 	}
-	if header.Version != reporting.ResourceVersion {
+	if header.Version != ResourceVersion {
 		return nil, trace.BadParameter("expected resource version %q, got %q",
-			reporting.ResourceVersion, header.Version)
+			ResourceVersion, header.Version)
 	}
 	switch header.Metadata.Name {
-	case reporting.EventTypeServer:
+	case EventTypeServer:
 		var event ServerEvent
 		err := unmarshalWithSchema(
 			getServerEventSchema(), grpcEvent.Data, &event)
@@ -184,7 +184,7 @@ func FromGRPCEvent(grpcEvent reporting.GRPCEvent) (Event, error) {
 			return nil, trace.Wrap(err)
 		}
 		return &event, nil
-	case reporting.EventTypeUser:
+	case EventTypeUser:
 		var event UserEvent
 		err := unmarshalWithSchema(
 			getUserEventSchema(), grpcEvent.Data, &event)

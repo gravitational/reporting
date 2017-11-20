@@ -21,8 +21,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/gravitational/reporting"
-
 	"github.com/gravitational/trace"
 )
 
@@ -59,8 +57,8 @@ type Notification struct {
 // NewHeartbeat returns a new heartbeat
 func NewHeartbeat(notifications ...Notification) *Heartbeat {
 	return &Heartbeat{
-		Kind:    reporting.KindHeartbeat,
-		Version: reporting.ResourceVersion,
+		Kind:    KindHeartbeat,
+		Version: ResourceVersion,
 		Metadata: Metadata{
 			Name:    "heartbeat",
 			Created: time.Now().UTC(),
@@ -83,13 +81,13 @@ func UnmarshalHeartbeat(bytes []byte) (*Heartbeat, error) {
 	if err := json.Unmarshal(bytes, &header); err != nil {
 		return nil, trace.Wrap(err)
 	}
-	if header.Kind != reporting.KindHeartbeat {
+	if header.Kind != KindHeartbeat {
 		return nil, trace.BadParameter("expected kind %q, got %q",
-			reporting.KindHeartbeat, header.Kind)
+			KindHeartbeat, header.Kind)
 	}
-	if header.Version != reporting.ResourceVersion {
+	if header.Version != ResourceVersion {
 		return nil, trace.BadParameter("expected resource version %q, got %q",
-			reporting.ResourceVersion, header.Version)
+			ResourceVersion, header.Version)
 	}
 	var heartbeat Heartbeat
 	err := unmarshalWithSchema(
