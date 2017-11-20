@@ -119,9 +119,9 @@ const heartbeatSchema = `{
         "additionalProperties": false,
         "properties": {
           "type": {"type": "string"},
-		  "severity": {"type": "string"},
-		  "text": {"type": "string"},
-		  "html": {"type": "string"}
+          "severity": {"type": "string"},
+          "text": {"type": "string"},
+          "html": {"type": "string"}
         }
       }
     }
