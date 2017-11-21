@@ -14,17 +14,29 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package reporting
+package types
 
 const (
+	// ResourceVersion is the current event resource version
+	ResourceVersion = "v2"
+	// KindEvent is the event resource kind
+	KindEvent = "event"
 	// EventTypeServer is the server-related event type
 	EventTypeServer = "server"
 	// EventTypeUser is the user-related event type
 	EventTypeUser = "user"
 	// EventActionLogin is the event login action
 	EventActionLogin = "login"
-	// KindEvent is the event resource kind
-	KindEvent = "event"
-	// ResourceVersion is the current event resource version
-	ResourceVersion = "v2"
+	// KindHeartbeat is the heartbeat resource kind
+	KindHeartbeat = "heartbeat"
+	// NotificationUsage is the usage limit notification type
+	NotificationUsage = "usage"
+	// NotificationTerms is the terms of service violation notification type
+	NotificationTerms = "terms"
+	// SeverityInfo is info notification severity
+	SeverityInfo = "info"
+	// SeverityWarning is warning notification severity
+	SeverityWarning = "warning"
+	// SeverityError is error notification severity
+	SeverityError = "error"
 )
