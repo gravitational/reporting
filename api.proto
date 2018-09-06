@@ -18,8 +18,8 @@ syntax = "proto3";
 
 package reporting;
 
-import "github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis/google/api/annotations.proto";
 import "google/protobuf/empty.proto";
+import "google/api/annotations.proto";
 
 // GRPCEvent represents a single event sent over gRPC
 message GRPCEvent {
