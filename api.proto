@@ -18,7 +18,6 @@ syntax = "proto3";
 
 package reporting;
 
-import "github.com/grpc-ecosystem/grpc-gateway/third_party/googleapis/google/api/annotations.proto";
 import "google/protobuf/empty.proto";
 
 // GRPCEvent represents a single event sent over gRPC
@@ -37,9 +36,5 @@ message GRPCEvents {
 service EventsService {
   // Record records the provided list of gRPC events
   rpc Record(GRPCEvents) returns (google.protobuf.Empty) {
-    option (google.api.http) = {
-      post: "/v1/events"
-      body: "*"
-    };
   }
 }
