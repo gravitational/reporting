@@ -35,5 +35,4 @@ buildbox-grpc:
 	echo $$PROTO_INCLUDE
 	cd $(GRPC_API) && protoc -I=.:$$PROTO_INCLUDE \
       --gofast_out=plugins=grpc:.\
-      --grpc-gateway_out=logtostderr=true:. \
     *.proto
