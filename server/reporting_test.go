@@ -29,7 +29,7 @@ import (
 
 	"github.com/cloudflare/cfssl/csr"
 	"github.com/gravitational/license/authority"
-	"github.com/pborman/uuid"
+	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	check "gopkg.in/check.v1"
@@ -53,8 +53,8 @@ func (r *ReportingSuite) SetUpSuite(c *check.C) {
 // TestReporting tests real client/server communication
 func (r *ReportingSuite) TestReporting(c *check.C) {
 	events := []types.Event{
-		types.NewServerLoginEvent(uuid.New()),
-		types.NewUserLoginEvent(uuid.New()),
+		types.NewServerLoginEvent(uuid.New().String()),
+		types.NewUserLoginEvent(uuid.New().String()),
 	}
 	for _, event := range events {
 		r.client.Record(event)
@@ -74,8 +74,8 @@ func (r *ReportingSuite) TestReporting(c *check.C) {
 
 // TestBQStructSavers tests converting events to BigQuery struct savers
 func (r *ReportingSuite) TestBQStructSavers(c *check.C) {
-	event1 := types.NewServerLoginEvent(uuid.New())
-	event2 := types.NewUserLoginEvent(uuid.New())
+	event1 := types.NewServerLoginEvent(uuid.New().String())
+	event2 := types.NewUserLoginEvent(uuid.New().String())
 	savers := eventsToStructSavers([]types.Event{event1, event2})
 	c.Assert(len(savers), check.Equals, 2)
 	c.Assert(savers[0].InsertID, check.Equals, event1.Spec.ID)
