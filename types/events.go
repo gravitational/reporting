@@ -25,7 +25,7 @@ import (
 
 	"github.com/gravitational/configure/jsonschema"
 	"github.com/gravitational/trace"
-	"github.com/pborman/uuid"
+	"github.com/google/uuid"
 )
 
 // Event defines an interface all event types should implement
@@ -80,7 +80,7 @@ func NewServerLoginEvent(serverID string) *ServerEvent {
 			Created: time.Now().UTC(),
 		},
 		Spec: ServerEventSpec{
-			ID:       uuid.New(),
+			ID:       uuid.New().String(),
 			Action:   EventActionLogin,
 			ServerID: serverID,
 		},
@@ -132,7 +132,7 @@ func NewUserLoginEvent(userID string) *UserEvent {
 			Created: time.Now().UTC(),
 		},
 		Spec: UserEventSpec{
-			ID:     uuid.New(),
+			ID:     uuid.New().String(),
 			Action: EventActionLogin,
 			UserID: userID,
 		},
